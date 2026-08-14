@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+*.log
+
+# flowcase project data created during local development / demos
+.flowcase/runs/
+.flowcase/auth/
+playwright-report/
+test-results/
+
+# environment secrets resolved at runtime
+.env
+.env.*
+!.env.example

@@ -1,0 +1,40 @@
+{
+  "name": "flowcase",
+  "version": "0.1.0",
+  "description": "No-code, React-based end-to-end test runner built on Playwright.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "flowcase": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "playwright",
+    "e2e",
+    "testing",
+    "no-code",
+    "test-runner",
+    "recorder"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@flowcase/core": "^0.1.0",
+    "@flowcase/server": "^0.1.0",
+    "@flowcase/ui": "^0.1.0",
+    "commander": "^15.0.0",
+    "picocolors": "^1.1.1"
+  }
+}

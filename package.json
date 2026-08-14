@@ -1,0 +1,30 @@
+{
+  "name": "flowcase-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Monorepo for flowcase — a no-code, React-based E2E test runner built on Playwright.",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "workspaces": [
+    "packages/core",
+    "packages/server",
+    "packages/ui",
+    "packages/cli"
+  ],
+  "scripts": {
+    "build": "npm run build -w @flowcase/core && npm run build -w @flowcase/server && npm run build -w @flowcase/ui && npm run build -w flowcase",
+    "build:node": "npm run build -w @flowcase/core && npm run build -w @flowcase/server && npm run build -w flowcase",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.2.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}
