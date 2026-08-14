@@ -131,6 +131,14 @@ export const EnvironmentSchema = z.object({
    */
   secretRefs: z.record(z.string(), z.string()).default({}),
   headless: z.boolean().default(true),
+  /**
+   * Pause between browser operations. A headed run is otherwise too fast to
+   * follow; 250–500ms makes it watchable. Ignored when running headless, where
+   * it would only make CI slower.
+   */
+  slowMoMs: z.number().int().min(0).max(5000).default(0),
+  /** Ripple where the runner clicks, so a headed run is easy to follow. */
+  highlightActions: z.boolean().default(true),
   browser: z.enum(['chromium', 'firefox', 'webkit']).default('chromium'),
   viewport: z
     .object({ width: z.number().int().min(200), height: z.number().int().min(200) })

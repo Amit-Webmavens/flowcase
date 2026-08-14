@@ -13,6 +13,7 @@ import type { CapturedResponse } from '../variables/extract.js';
 import { applyExtractions } from '../variables/extract.js';
 import { interpolate, resolveTyped } from '../variables/interpolate.js';
 import type { VariableScope } from '../variables/scope.js';
+import { showRipple } from './highlight.js';
 import type { MockRegistry } from './mocks.js';
 import { compareScreenshot } from './visual.js';
 
@@ -29,6 +30,8 @@ export interface StepContext {
   /** `artifactDir` relative to the run root — what gets stored in results. */
   artifactPrefix: string;
   defaultTimeoutMs: number;
+  /** Ripple where the runner acts. Only worth doing when someone is watching. */
+  highlight: boolean;
   log: (entry: LogEntry) => void;
 }
 
@@ -88,6 +91,20 @@ export async function executeStep(step: Step, context: StepContext): Promise<Ste
     return resolved.locator;
   };
 
+  /**
+   * Same as `target`, but marks the element first. Used only by steps that act
+   * on the page — a ripple on every assertion would be noise, not a signal.
+   */
+  const acting = async (state: 'visible' | 'attached' = 'visible') => {
+    const locator = await target(state);
+
+    if (context.highlight) {
+      await showRipple(page, locator);
+    }
+
+    return locator;
+  };
+
   const text = (raw: string | undefined): string => interpolate(raw ?? '', scope);
 
   switch (step.kind) {
@@ -121,23 +138,23 @@ export async function executeStep(step: Step, context: StepContext): Promise<Ste
 
     // ── Interaction ────────────────────────────────────────────────────────
     case 'click':
-      await (await target()).click({ timeout: timeoutMs });
+      await (await acting()).click({ timeout: timeoutMs });
       break;
 
     case 'dblclick':
-      await (await target()).dblclick({ timeout: timeoutMs });
+      await (await acting()).dblclick({ timeout: timeoutMs });
       break;
 
     case 'rightClick':
-      await (await target()).click({ button: 'right', timeout: timeoutMs });
+      await (await acting()).click({ button: 'right', timeout: timeoutMs });
       break;
 
     case 'fill':
-      await (await target()).fill(text(step.value), { timeout: timeoutMs });
+      await (await acting()).fill(text(step.value), { timeout: timeoutMs });
       break;
 
     case 'type': {
-      const locator = await target();
+      const locator = await acting();
       const delay = Number(text(step.value2));
       await locator.pressSequentially(text(step.value), {
         timeout: timeoutMs,
@@ -158,7 +175,7 @@ export async function executeStep(step: Step, context: StepContext): Promise<Ste
     }
 
     case 'select': {
-      const locator = await target();
+      const locator = await acting();
       const option = text(step.value);
 
       try {
@@ -171,15 +188,15 @@ export async function executeStep(step: Step, context: StepContext): Promise<Ste
     }
 
     case 'check':
-      await (await target()).check({ timeout: timeoutMs });
+      await (await acting()).check({ timeout: timeoutMs });
       break;
 
     case 'uncheck':
-      await (await target()).uncheck({ timeout: timeoutMs });
+      await (await acting()).uncheck({ timeout: timeoutMs });
       break;
 
     case 'hover':
-      await (await target()).hover({ timeout: timeoutMs });
+      await (await acting()).hover({ timeout: timeoutMs });
       break;
 
     case 'focus':
@@ -187,7 +204,7 @@ export async function executeStep(step: Step, context: StepContext): Promise<Ste
       break;
 
     case 'clear':
-      await (await target()).clear({ timeout: timeoutMs });
+      await (await acting()).clear({ timeout: timeoutMs });
       break;
 
     case 'upload': {

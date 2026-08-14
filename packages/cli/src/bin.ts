@@ -40,16 +40,20 @@ program
   .option('-u, --url <url>', 'where to start')
   .option('-e, --env <id>', 'environment to record against')
   .option('-s, --session <name>', 'start from a saved login session')
+  .option('--after <testIds...>', 'run these tests first and record from where they finish')
   .option('--save <name>', 'name for the saved test')
-  .action(async (options: { url?: string; env?: string; session?: string; save?: string }) => {
-    await recordCommand({
-      ...(options.url === undefined ? {} : { url: options.url }),
-      ...(options.env === undefined ? {} : { environment: options.env }),
-      ...(options.session === undefined ? {} : { session: options.session }),
-      ...(options.save === undefined ? {} : { save: options.save }),
-      cwd: process.cwd(),
-    });
-  });
+  .action(
+    async (options: { url?: string; env?: string; session?: string; after?: string[]; save?: string }) => {
+      await recordCommand({
+        ...(options.url === undefined ? {} : { url: options.url }),
+        ...(options.env === undefined ? {} : { environment: options.env }),
+        ...(options.session === undefined ? {} : { session: options.session }),
+        ...(options.after === undefined ? {} : { after: options.after }),
+        ...(options.save === undefined ? {} : { save: options.save }),
+        cwd: process.cwd(),
+      });
+    },
+  );
 
 program
   .command('run')
@@ -57,7 +61,9 @@ program
   .argument('[tests...]', 'test ids to run; omit to run everything')
   .option('-t, --tag <tag...>', 'only tests with these tags (prefix with ! to exclude)')
   .option('-e, --env <id>', 'environment to run against')
-  .option('--headed', 'show the browser', false)
+  .option('--headed', 'show the browser, whatever the environment says')
+  .option('--headless', 'hide the browser, whatever the environment says')
+  .option('--slow-mo <ms>', 'pause between actions so a headed run can be followed')
   .option('--dry-run', 'resolve everything and report what would run, without a browser', false)
   .option('-c, --concurrency <n>', 'independent tests to run at once', '1')
   .option('--approved-only', 'skip tests that have not been approved', false)
@@ -68,18 +74,24 @@ program
       options: {
         tag?: string[];
         env?: string;
-        headed: boolean;
+        headed?: boolean;
+        headless?: boolean;
+        slowMo?: string;
         dryRun: boolean;
         concurrency: string;
         approvedOnly: boolean;
         verbose: boolean;
       },
     ) => {
+      // Left undefined unless asked for, so the environment profile stays in charge.
+      const headed = options.headed === true ? true : options.headless === true ? false : undefined;
+
       await runCommand({
         testIds: tests,
         ...(options.tag === undefined ? {} : { tags: options.tag }),
         ...(options.env === undefined ? {} : { environment: options.env }),
-        headed: options.headed,
+        ...(headed === undefined ? {} : { headed }),
+        ...(options.slowMo === undefined ? {} : { slowMo: Number(options.slowMo) }),
         dryRun: options.dryRun,
         concurrency: Number(options.concurrency),
         approvedOnly: options.approvedOnly,

@@ -8,7 +8,9 @@ export interface StartRunRequest {
   environmentId?: string;
   variables?: Record<string, JsonValue>;
   dryRun?: boolean;
+  /** Omit to let the environment profile decide whether the browser is shown. */
   headed?: boolean;
+  slowMo?: number;
   concurrency?: number;
   approvedOnly?: boolean;
   triggeredByUser?: string;
@@ -52,6 +54,7 @@ export class RunManager {
       ...(request.variables === undefined ? {} : { variables: request.variables }),
       ...(request.dryRun === undefined ? {} : { dryRun: request.dryRun }),
       ...(request.headed === undefined ? {} : { headed: request.headed }),
+      ...(request.slowMo === undefined ? {} : { slowMo: request.slowMo }),
       ...(request.concurrency === undefined ? {} : { concurrency: request.concurrency }),
       ...(request.approvedOnly === undefined ? {} : { approvedOnly: request.approvedOnly }),
       ...(request.triggeredByUser === undefined ? {} : { triggeredByUser: request.triggeredByUser }),

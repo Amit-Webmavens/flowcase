@@ -30,8 +30,13 @@ export interface StartRunOptions {
   /** Inputs supplied at run time; they win over declared defaults. */
   variables?: Record<string, JsonValue>;
   dryRun?: boolean;
-  /** Show the browser window. Overrides the environment setting. */
+  /**
+   * Show the browser window. Overrides the environment setting when set;
+   * leave undefined to let the environment profile decide.
+   */
   headed?: boolean;
+  /** Pause between browser operations, so a headed run can be followed. */
+  slowMo?: number;
   /** How many independent tests may run at once. Dependencies always serialise. */
   concurrency?: number;
   triggeredBy?: RunTrigger;
@@ -145,7 +150,8 @@ interface ExecutePlanArgs {
 async function executePlan(args: ExecutePlanArgs): Promise<void> {
   const { run, plan, byId, snippets, environment, runScope, store, bus, options } = args;
 
-  const browser = await launchBrowser(environment, options.headed);
+  const launch = resolveBrowserLaunch(environment, options.headed, options.slowMo);
+  const browser = await launchBrowser(launch, environment);
 
   /** Storage state handed from one test to the next, so logins are not repeated. */
   let inheritedState: BrowserContextOptions['storageState'];
@@ -206,6 +212,7 @@ async function executePlan(args: ExecutePlanArgs): Promise<void> {
           runScope,
           runId: run.id,
           runDir: store.runDir(run.id),
+          highlight: launch.highlight,
           ...(row === undefined ? {} : { dataRow: row }),
           emit: (event) => bus.emit(event),
           ...(options.signal === undefined ? {} : { signal: options.signal }),
@@ -364,16 +371,46 @@ async function createContext(
   return { context, page };
 }
 
-async function launchBrowser(environment: Environment | undefined, headed: boolean | undefined): Promise<Browser> {
+export interface BrowserLaunchPlan {
+  headless: boolean;
+  slowMo: number;
+  /** Ripple on each action — pointless with nobody watching, so headed only. */
+  highlight: boolean;
+}
+
+/**
+ * Decides how the browser should be launched.
+ *
+ * A per-run choice wins, but only when one was actually made: passing
+ * `undefined` leaves the environment profile in charge, which is what makes an
+ * environment marked "headed" behave that way without a flag on every command.
+ */
+export function resolveBrowserLaunch(
+  environment: Environment | undefined,
+  headed: boolean | undefined,
+  slowMo: number | undefined,
+): BrowserLaunchPlan {
   const headless = headed === undefined ? (environment?.headless ?? true) : !headed;
+  const requested = slowMo ?? environment?.slowMoMs ?? 0;
+
+  return {
+    headless,
+    // Slowing a headless run only makes CI slower; nobody is watching it.
+    slowMo: headless ? 0 : requested,
+    highlight: !headless && (environment?.highlightActions ?? true),
+  };
+}
+
+async function launchBrowser(plan: BrowserLaunchPlan, environment: Environment | undefined): Promise<Browser> {
+  const options = { headless: plan.headless, ...(plan.slowMo > 0 ? { slowMo: plan.slowMo } : {}) };
 
   switch (environment?.browser ?? 'chromium') {
     case 'firefox':
-      return firefox.launch({ headless });
+      return firefox.launch(options);
     case 'webkit':
-      return webkit.launch({ headless });
+      return webkit.launch(options);
     default:
-      return chromium.launch({ headless });
+      return chromium.launch(options);
   }
 }
 

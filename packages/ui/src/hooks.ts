@@ -11,11 +11,27 @@ export type ServerEvent =
   | { type: 'step:start'; runId: string; testId: string; step: Run['results'][number]['steps'][number] }
   | { type: 'step:end'; runId: string; testId: string; step: Run['results'][number]['steps'][number] }
   | { type: 'log'; runId: string; testId?: string; entry: { message: string; level: string } }
-  | { type: 'recorder:started'; startUrl?: string }
+  | { type: 'recorder:started'; startUrl?: string; prerequisiteTestIds: string[] }
   | { type: 'recorder:step'; step: Step; index: number }
   | { type: 'recorder:navigate'; url: string }
   | { type: 'recorder:mode'; mode: 'record' | 'paused' | 'assert' }
-  | { type: 'recorder:stopped'; steps: Step[] };
+  | { type: 'recorder:setupFailed'; message: string }
+  | { type: 'recorder:stopped'; steps: Step[] }
+  | { type: 'prerequisite:plan'; order: Array<{ testId: string; name: string }> }
+  | { type: 'prerequisite:test'; testId: string; name: string; index: number; total: number }
+  | { type: 'prerequisite:step'; testId: string; label: string }
+  | { type: 'prerequisite:result'; result: PrerequisiteResult };
+
+/** Mirrors `PrerequisiteResult` in core, which is not importable from the browser build. */
+export interface PrerequisiteResult {
+  testId: string;
+  name: string;
+  status: 'passed' | 'failed';
+  durationMs: number;
+  stepCount: number;
+  error?: string;
+  failedStep?: string;
+}
 
 type Listener = (event: ServerEvent) => void;
 

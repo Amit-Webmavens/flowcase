@@ -5,6 +5,8 @@ export interface InjectConfig {
   testIdAttribute: string;
   baseScores: Record<string, number>;
   toolbar: boolean;
+  /** Ripple where the tester clicks, confirming the action was captured. */
+  highlight: boolean;
 }
 
 export interface RecordedTarget {

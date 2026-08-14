@@ -10,7 +10,9 @@ import type { Environment } from '../model/test.js';
 import type { ProjectStore } from '../storage/store.js';
 import { absoluteUrl } from '../engine/step-executor.js';
 import { installRecorder } from './inject.js';
-import type { RecordedEvent, RecordedTarget, RecorderMode } from './protocol.js';
+import { runPrerequisites } from './prerequisites.js';
+import type { PrerequisiteOutcome, PrerequisiteProgress } from './prerequisites.js';
+import type { InjectConfig, RecordedEvent, RecordedTarget, RecorderMode } from './protocol.js';
 
 export interface RecorderOptions {
   store: ProjectStore;
@@ -19,8 +21,19 @@ export interface RecorderOptions {
   startUrl?: string;
   /** Reuse a saved login so recording can begin behind authentication. */
   session?: string;
+  /**
+   * Existing tests to run before recording starts. Recording then continues in
+   * the same browser, from wherever they finish — so a test that edits an order
+   * can be recorded without re-recording the login and the order that precedes
+   * it. Their own dependencies are pulled in automatically.
+   */
+  prerequisiteTestIds?: string[];
+  /** Progress while the setup chain runs; it can take a while to watch silently. */
+  onPrerequisite?: (event: PrerequisiteProgress) => void;
   /** Show the in-page toolbar with pause/assert/finish controls. */
   toolbar?: boolean;
+  /** Ripple where the tester clicks, confirming the action was captured. */
+  highlight?: boolean;
   /**
    * Recording is headed by default — the point is to watch a person use the app.
    * Headless is available so the recorder itself can be exercised by tests.
@@ -47,13 +60,32 @@ export class RecorderSession {
   private lastActionAt = 0;
   private stopped = false;
   private mode: RecorderMode = 'record';
+  private prerequisites: PrerequisiteOutcome | undefined;
 
   private constructor(private readonly options: RecorderOptions) {}
 
   static async start(options: RecorderOptions): Promise<RecorderSession> {
     const session = new RecorderSession(options);
-    await session.launch();
+
+    try {
+      await session.launch();
+    } catch (error) {
+      // A failed setup chain must not leave a browser running with nobody watching it.
+      await session.stop().catch(() => undefined);
+      throw error;
+    }
+
     return session;
+  }
+
+  /** Result of the setup chain, when one was run before recording. */
+  get setup(): PrerequisiteOutcome | undefined {
+    return this.prerequisites;
+  }
+
+  /** Tests this recording began from — the natural `dependsOn` for what is saved. */
+  get prerequisiteTestIds(): string[] {
+    return this.prerequisites?.order ?? [];
   }
 
   get steps(): Step[] {
@@ -98,14 +130,9 @@ export class RecorderSession {
       ...(sessionPath === undefined ? {} : { storageState: sessionPath }),
     });
 
+    // Harmless before the recorder is installed: nothing in the page calls it yet.
     await this.context.exposeBinding('__flowcaseRecord', async (source, event: RecordedEvent) => {
       await this.handleEvent(event, source.frame);
-    });
-
-    await this.context.addInitScript(installRecorder, {
-      testIdAttribute: config.testIdAttribute,
-      baseScores: ENGINE_BASE_SCORE,
-      toolbar: this.options.toolbar ?? true,
     });
 
     this.page = await this.context.newPage();
@@ -116,6 +143,44 @@ export class RecorderSession {
         this.options.onFinish?.();
       }
     });
+
+    const headed = !(this.options.headless ?? false);
+
+    const injectConfig: InjectConfig = {
+      testIdAttribute: config.testIdAttribute,
+      baseScores: ENGINE_BASE_SCORE,
+      toolbar: this.options.toolbar ?? true,
+      highlight: this.options.highlight ?? headed,
+    };
+
+    const prerequisiteTestIds = this.options.prerequisiteTestIds ?? [];
+
+    /**
+     * The setup chain runs before the recorder is installed, so none of the
+     * clicks it performs are mistaken for the tester's own.
+     */
+    if (prerequisiteTestIds.length > 0) {
+      this.prerequisites = await runPrerequisites({
+        store,
+        testIds: prerequisiteTestIds,
+        page: this.page,
+        browserContext: this.context,
+        environment,
+        // Someone is watching the setup run, so show them where it is acting.
+        highlight: injectConfig.highlight,
+        ...(this.options.onPrerequisite === undefined
+          ? {}
+          : { onProgress: this.options.onPrerequisite }),
+      });
+    }
+
+    await this.context.addInitScript(installRecorder, injectConfig);
+
+    // `addInitScript` only takes effect on the next navigation, so the page the
+    // setup chain left open needs the recorder installed directly.
+    if (this.prerequisites) {
+      await this.page.evaluate(installRecorder, injectConfig).catch(() => undefined);
+    }
 
     const startUrl = this.options.startUrl?.trim();
 

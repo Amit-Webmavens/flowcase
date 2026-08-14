@@ -433,6 +433,55 @@ export function installRecorder(config: InjectConfig): void {
 
   const recording = (): boolean => mode !== 'paused';
 
+  /**
+   * Independent copy of the runner's ripple (`engine/highlight.ts`) — the
+   * injected script is serialised into the page and cannot import. The style id
+   * and class name are shared deliberately, so the two never double-inject.
+   */
+  const ripple = (x: number, y: number): void => {
+    if (!config.highlight || !document.body) {
+      return;
+    }
+
+    const styleId = '__flowcase_highlight';
+    const head = document.head ?? document.documentElement;
+
+    if (head && !document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent =
+        '@keyframes __flowcase_ripple_in{from{transform:translate(-50%,-50%) scale(0.25);opacity:0.95}' +
+        'to{transform:translate(-50%,-50%) scale(1);opacity:0}}' +
+        '.__flowcase_ripple{position:fixed;width:56px;height:56px;margin:0;padding:0;border-radius:9999px;' +
+        'border:3px solid rgba(56,132,255,0.95);background:rgba(56,132,255,0.22);pointer-events:none;' +
+        'z-index:2147483647;animation:__flowcase_ripple_in 600ms ease-out forwards}';
+      head.append(style);
+    }
+
+    const dot = document.createElement('div');
+    dot.className = '__flowcase_ripple';
+    dot.setAttribute('data-flowcase', 'ripple');
+    dot.style.left = `${x}px`;
+    dot.style.top = `${y}px`;
+    document.body.append(dot);
+
+    window.setTimeout(() => dot.remove(), 600);
+  };
+
+  // Separate from the capture logic below: this fires for every click the
+  // recorder is listening to, including ones reported by the change handler.
+  document.addEventListener(
+    'click',
+    (event) => {
+      const { element } = realTarget(event);
+
+      if (element && !isToolbar(element) && recording()) {
+        ripple(event.clientX, event.clientY);
+      }
+    },
+    true,
+  );
+
   document.addEventListener(
     'click',
     (event) => {

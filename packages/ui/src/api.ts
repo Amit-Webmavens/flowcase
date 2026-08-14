@@ -45,6 +45,8 @@ export interface RecorderStatus {
   mode: 'record' | 'paused' | 'assert';
   stepCount: number;
   startUrl?: string;
+  /** Setup chain the recording began from, after dependency expansion. */
+  prerequisiteTestIds: string[];
 }
 
 export interface TestDiffResponse {
@@ -148,7 +150,9 @@ export const api = {
     tags?: string[];
     environmentId?: string;
     dryRun?: boolean;
+    /** Omit to let the environment profile decide. */
     headed?: boolean;
+    slowMo?: number;
     concurrency?: number;
     variables?: Record<string, string>;
   }) => request<{ runId: string }>('POST', '/api/runs', body),
@@ -156,8 +160,12 @@ export const api = {
   plan: (body: { testIds?: string[]; tags?: string[] }) => request<PlanResponse>('POST', '/api/plan', body),
 
   recorderStatus: () => request<RecorderStatus>('GET', '/api/recorder/status'),
-  startRecorder: (body: { startUrl?: string; environmentId?: string; session?: string }) =>
-    request<RecorderStatus>('POST', '/api/recorder/start', body),
+  startRecorder: (body: {
+    startUrl?: string;
+    environmentId?: string;
+    session?: string;
+    prerequisiteTestIds?: string[];
+  }) => request<RecorderStatus>('POST', '/api/recorder/start', body),
   recorderMode: (mode: 'record' | 'paused') => request<RecorderStatus>('POST', '/api/recorder/mode', { mode }),
   stopRecorder: () => request<{ steps: Step[] }>('POST', '/api/recorder/stop'),
 };

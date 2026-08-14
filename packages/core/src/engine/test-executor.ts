@@ -39,6 +39,8 @@ export interface ExecuteTestOptions {
   /** Absolute path of the run directory. */
   runDir: string;
   dataRow?: DataRow;
+  /** Ripple where the runner acts — set when the run is headed. */
+  highlight?: boolean;
   emit: (event: RunEvent) => void;
   signal?: AbortSignal;
 }
@@ -109,6 +111,7 @@ export async function executeTest(options: ExecuteTestOptions): Promise<TestResu
     artifactDir,
     artifactPrefix,
     defaultTimeoutMs: test.defaultTimeoutMs,
+    highlight: options.highlight ?? false,
     log,
   };
 

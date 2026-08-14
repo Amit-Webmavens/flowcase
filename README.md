@@ -17,6 +17,8 @@ npx flowcase ui
 
 **Selectors that survive a redesign.** Each recorded element keeps a ranked list of selectors (test id, role + accessible name, label, placeholder, text, CSS, XPath) plus a fingerprint of what the element looked like. When the primary selector stops matching, flowcase tries the fallbacks and only accepts one whose element still resembles what was recorded — so a renamed button heals, and an unrelated match does not.
 
+**Record from where another test finishes.** Pick the tests that get you to the screen you care about — a login, an order that has to exist — and flowcase runs them in the browser first, without recording them. You start clicking already logged in, with the data already there, and what you record is chained to them automatically. No re-recording the same setup for every new test.
+
 **Tests that build on each other.** A test can depend on others. Running one alone pulls in its dependencies in the right order, hands down the browser session so logins are not repeated, and passes along captured values. Cycles are detected and reported rather than hanging.
 
 **Runtime values.** Capture the id from a redirect URL, from page text, from an element attribute, or from a JSON API response, and use it as `{{orderId}}` in later steps and in dependent tests.
@@ -31,7 +33,7 @@ npx flowcase ui
 | --- | --- |
 | `flowcase init` | Create a project in the current directory |
 | `flowcase ui` | Open the no-code interface (default `http://127.0.0.1:4100`) |
-| `flowcase record` | Record a test from the terminal |
+| `flowcase record` | Record a test from the terminal (`--after <testId…>` to start from existing tests) |
 | `flowcase run [tests...]` | Run tests; exits non-zero if any fail |
 | `flowcase list` | List tests in the order they would run |
 
@@ -43,9 +45,18 @@ flowcase run --tag smoke --dry-run     # resolve everything, run nothing
 flowcase run -c 4                      # run independent tests in parallel
 ```
 
+To watch a run happen:
+
+```bash
+flowcase run --headed --slow-mo 300 -c 1
+```
+
+`--headed` and `--headless` override the environment profile; give neither and the environment decides. Slow motion is ignored on a headless run, so CI is never slowed by a profile left on a developer setting.
+
 ## Features
 
 - Action recorder with dynamic-site support, plus an in-page pause/assert toolbar
+- Record starting from existing tests — they run first, unrecorded, and become the new test's dependencies
 - Test dependency graph — run one test and its chain resolves automatically
 - Repeats: fixed count, from a variable, per data-set row, or until an element appears/disappears
 - Runtime extraction from URL, text, attributes, field values, page title, API responses, storage
@@ -57,6 +68,7 @@ flowcase run -c 4                      # run independent tests in parallel
 - Session reuse across chained tests, and named saved sessions
 - Visual regression against approved screenshot baselines
 - Environment profiles, with secrets referenced from the process environment
+- Headed runs with slow motion and a ripple on every action, so a run can be watched
 - Reusable snippets shared across tests
 - Versioning with a step-level diff view, and an approval workflow
 - Tagging and filtering, dry-run preview, step comments

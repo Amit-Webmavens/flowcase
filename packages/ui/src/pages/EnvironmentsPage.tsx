@@ -153,6 +153,31 @@ function EnvironmentForm({
         </Field>
       </div>
 
+      <div className="flex flex-wrap items-end gap-4">
+        <Field
+          label="Slow down (ms per action)"
+          hint="0 runs at full speed. Try 300 to follow a headed run. Ignored when headless."
+        >
+          <Input
+            type="number"
+            min={0}
+            max={5000}
+            value={environment.slowMoMs}
+            onChange={(event) => set({ slowMoMs: Number(event.target.value) })}
+            className="w-40"
+          />
+        </Field>
+
+        <label className="flex items-center gap-2 pb-2 text-sm">
+          <input
+            type="checkbox"
+            checked={environment.highlightActions}
+            onChange={(event) => set({ highlightActions: event.target.checked })}
+          />
+          Ripple where the runner clicks
+        </label>
+      </div>
+
       <div className="flex flex-wrap gap-4 text-sm">
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={environment.headless} onChange={(event) => set({ headless: event.target.checked })} />

@@ -30,6 +30,7 @@ import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import { EventHub } from './events.js';
 import { RecorderManager } from './recorder-manager.js';
+import type { StartRecordingRequest } from './recorder-manager.js';
 import { RunManager } from './run-manager.js';
 
 export interface BuildServerOptions {
@@ -535,7 +536,9 @@ export async function buildServer(options: BuildServerOptions): Promise<Flowcase
   // ── Recorder ─────────────────────────────────────────────────────────────
   app.get('/api/recorder/status', async () => recorder.status());
 
-  app.post('/api/recorder/start', async (request) => recorder.start((request.body ?? {}) as object));
+  app.post('/api/recorder/start', async (request) =>
+    recorder.start((request.body ?? {}) as StartRecordingRequest),
+  );
 
   app.post('/api/recorder/mode', async (request) => {
     const body = (request.body ?? {}) as { mode?: 'record' | 'paused' | 'assert' };

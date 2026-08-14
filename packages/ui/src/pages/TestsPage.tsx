@@ -22,7 +22,9 @@ export function TestsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [runOptions, setRunOptions] = useState<{ open: boolean; dryRun: boolean }>({ open: false, dryRun: false });
   const [environmentId, setEnvironmentId] = useState('');
-  const [headed, setHeaded] = useState(false);
+  /** `''` means "leave it to the environment" — the run must not override it. */
+  const [browserMode, setBrowserMode] = useState<'' | 'headed' | 'headless'>('');
+  const [slowMo, setSlowMo] = useState('');
   const [busy, setBusy] = useState<string>();
 
   const filtered = useMemo(() => {
@@ -57,7 +59,8 @@ export function TestsPage() {
       const { runId } = await api.startRun({
         testIds,
         dryRun,
-        headed,
+        ...(browserMode === '' ? {} : { headed: browserMode === 'headed' }),
+        ...(slowMo.trim() === '' ? {} : { slowMo: Number(slowMo) }),
         ...(environmentId ? { environmentId } : {}),
       });
       navigate(`/runs/${runId}`);
@@ -217,10 +220,31 @@ export function TestsPage() {
               </Select>
             </Field>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={headed} onChange={(event) => setHeaded(event.target.checked)} />
-              Show the browser while running
-            </label>
+            <Field label="Browser" hint="The environment decides unless you override it here.">
+              <Select
+                value={browserMode}
+                onChange={(event) => setBrowserMode(event.target.value as '' | 'headed' | 'headless')}
+              >
+                <option value="">Use the environment setting</option>
+                <option value="headed">Show the browser</option>
+                <option value="headless">Hide the browser</option>
+              </Select>
+            </Field>
+
+            {browserMode !== 'headless' && (
+              <Field
+                label="Slow down (ms per action)"
+                hint="A headed run is otherwise too fast to follow. Try 300. Ignored when hidden."
+              >
+                <Input
+                  value={slowMo}
+                  inputMode="numeric"
+                  placeholder="environment default"
+                  onChange={(event) => setSlowMo(event.target.value)}
+                  className="w-40"
+                />
+              </Field>
+            )}
           </div>
         </Modal>
       )}

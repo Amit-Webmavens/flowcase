@@ -68,6 +68,7 @@ export async function recordCommand(options: {
   url?: string;
   environment?: string;
   session?: string;
+  after?: string[];
   save?: string;
   cwd: string;
 }): Promise<void> {
@@ -76,6 +77,10 @@ export async function recordCommand(options: {
     ? await store.getEnvironment(options.environment)
     : await store.getDefaultEnvironment();
 
+  if (options.after && options.after.length > 0) {
+    process.stdout.write(`${pc.dim('Running setup tests first…')}\n`);
+  }
+
   process.stdout.write(`${pc.dim('Opening a browser. Use your app, then press')} ${pc.bold('Finish')} ${pc.dim('in the toolbar (or close the window).')}\n\n`);
 
   const session = await RecorderSession.start({
@@ -83,6 +88,19 @@ export async function recordCommand(options: {
     environment,
     ...(options.url === undefined ? {} : { startUrl: options.url }),
     ...(options.session === undefined ? {} : { session: options.session }),
+    ...(options.after === undefined ? {} : { prerequisiteTestIds: options.after }),
+    onPrerequisite: (event) => {
+      if (event.type === 'prerequisite:test') {
+        process.stdout.write(
+          `  ${pc.dim(`setup ${event.index + 1}/${event.total}`)} ${pc.bold(event.name)}\n`,
+        );
+      }
+
+      if (event.type === 'prerequisite:result') {
+        const mark = event.result.status === 'passed' ? pc.green('✓') : pc.red('✗');
+        process.stdout.write(`  ${mark} ${event.result.name}\n`);
+      }
+    },
     onStep: (step, index) => {
       process.stdout.write(`  ${pc.dim(String(index + 1).padStart(3))} ${step.label}\n`);
     },
@@ -112,9 +130,20 @@ export async function recordCommand(options: {
   }
 
   const name = options.save ?? `Recorded ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`;
-  const test = await store.saveTest(createTest({ name, steps }));
+
+  // Whatever set the browser up at record time has to run again at run time.
+  const dependsOn = session.prerequisiteTestIds;
+
+  const test = await store.saveTest(
+    createTest({ name, steps, ...(dependsOn.length > 0 ? { dependsOn } : {}) }),
+  );
 
   process.stdout.write(`\n${pc.green('✓')} Saved ${pc.bold(test.name)} with ${steps.length} steps.\n`);
+
+  if (dependsOn.length > 0) {
+    process.stdout.write(`  ${pc.dim(`Runs after: ${dependsOn.join(', ')}`)}\n`);
+  }
+
   process.stdout.write(`  ${pc.dim(`flowcase run ${test.id}`)}\n`);
 }
 
@@ -122,7 +151,9 @@ export async function runCommand(options: {
   testIds: string[];
   tags?: string[];
   environment?: string;
-  headed: boolean;
+  /** Undefined leaves the choice to the environment profile. */
+  headed?: boolean;
+  slowMo?: number;
   dryRun: boolean;
   concurrency: number;
   approvedOnly: boolean;
@@ -137,7 +168,8 @@ export async function runCommand(options: {
     testIds: options.testIds,
     ...(options.tags === undefined ? {} : { tags: options.tags }),
     ...(options.environment === undefined ? {} : { environmentId: options.environment }),
-    headed: options.headed,
+    ...(options.headed === undefined ? {} : { headed: options.headed }),
+    ...(options.slowMo === undefined || Number.isNaN(options.slowMo) ? {} : { slowMo: options.slowMo }),
     dryRun: options.dryRun,
     concurrency: options.concurrency,
     approvedOnly: options.approvedOnly,
